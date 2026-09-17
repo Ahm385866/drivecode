@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>CodeDrive 1.0 — Kodlama Bulmaca Oyunu</title>
+<meta name="description" content="CodeDrive 1.0: araç komutlarıyla engelleri aşarak hedefe ulaştığın kodlama ve bulmaca oyunu. 30 bölümlük eğitici strateji oyunu.">
+<meta name="keywords" content="kodlama, bulmaca, puzzle, coding, strateji, eğitici, oyun">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; height:100dvh; font-family:'Segoe UI',Tahoma,sans-serif; background:#1a1a2e; color:#fff; overflow:hidden; overscroll-behavior:none; touch-action:none; -webkit-user-select:none; user-select:none; }
+  #app { display:flex; flex-direction:column; height:100dvh; width:100%; }
+  #header { padding:10px; text-align:center; background:linear-gradient(180deg,#1b2a4a 0%,#16213e 100%); font-weight:bold; font-size:18px; letter-spacing:0.5px; box-shadow:0 2px 10px rgba(0,0,0,0.35); position:relative; z-index:2; }
+  #header .lvl { color:#ffd54f; }
+  #header .sc { color:#4caf50; }
+  #progress-wrap { height:6px; background:rgba(255,255,255,0.12); width:100%; }
+  #progress-bar { height:100%; width:0%; background:linear-gradient(90deg,#ffd54f,#4caf50); transition:width 0.25s ease; }
+  #stage { flex:1; min-height:0; position:relative; background:radial-gradient(circle at 30% 20%,#16406f 0%,#0f3460 55%,#0b2545 100%); }
+  canvas { width:100%; height:100%; min-height:0; display:block; touch-action:none; }
+  #panel { min-height:54px; max-height:110px; overflow-y:auto; flex-shrink:0; background:linear-gradient(180deg,#233a6b 0%,#1d3157 100%); padding:8px; display:flex; flex-wrap:wrap; gap:6px; align-content:flex-start; border-top:3px solid #e94560; box-shadow:0 -3px 12px rgba(0,0,0,0.4); }
+  .cmd { background:linear-gradient(180deg,#ffe082 0%,#ffd54f 100%); color:#1a1a2e; padding:8px 12px; border-radius:10px; font-size:15px; font-weight:bold; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.4); }
+  .cmd .x { cursor:pointer; opacity:0.7; font-size:13px; background:rgba(0,0,0,0.12); border-radius:50%; width:18px; height:18px; display:flex; align-items:center; justify-content:center; }
+  #controls { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:8px; padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px)); background:linear-gradient(180deg,#1d3157 0%,#233a6b 100%); border-top:3px solid #e94560; box-shadow:0 -3px 12px rgba(0,0,0,0.4); flex-shrink:0; }
+  #controls .row1b { grid-column:1/-1; }
+  #controls .row2 { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  button { padding:11px 6px; font-size:14px; font-weight:bold; border:none; border-radius:12px; background:linear-gradient(180deg,#8a5fc4 0%,#7b4fb5 100%); color:#fff; cursor:pointer; box-shadow:0 3px 6px rgba(0,0,0,0.35); touch-action:manipulation; transition:transform 0.08s ease, filter 0.08s ease; }
+  button:active { transform:scale(0.95); filter:brightness(1.1); }
+  #btn-repeat { background:linear-gradient(180deg,#42a5f5 0%,#1e88e5 100%); width:100%; }
+  #btn-run { background:linear-gradient(180deg,#5dbf62 0%,#4caf50 100%); padding:14px 6px; font-size:17px; box-shadow:0 3px 10px rgba(76,175,80,0.45); border:2px solid rgba(255,255,255,0.85); }
+  #btn-clear { background:linear-gradient(180deg,#f25c75 0%,#e94560 100%); padding:14px 6px; font-size:17px; box-shadow:0 3px 10px rgba(233,69,96,0.45); border:2px solid rgba(255,255,255,0.85); }
+  .overlay { position:absolute; inset:0; background:rgba(15,52,96,0.94); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; text-align:center; padding:20px; }
+  .overlay h2 { margin:0; font-size:24px; line-height:1.4; }
+  .overlay button { padding:14px 30px; font-size:18px; background:#e94560; border-radius:10px; }
+  .hidden { display:none !important; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@remix-gg/sdk@latest/dist/index.min.js"></script>
+</head>
+<body>
+<div id="app">
+  <div id="header">CodeDrive 1.0 — Bölüm <span id="lvl" class="lvl">1</span> &nbsp;·&nbsp; Puan: <span id="score" class="sc">0</span></div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+  </div>
+  <div id="panel"></div>
+  <div id="controls">
+    <button id="b-fwd">⬆ İleri</button>
+    <button id="b-right">↻ Sağa Dön</button>
+    <button id="b-left">↺ Sola Dön</button>
+    <div class="row1b">
+      <button id="btn-repeat">🔁 Tekrarla</button>
+    </div>
+    <div class="row2">
+      <button id="btn-clear">🗑 Temizle</button>
+      <button id="btn-run">▶ Çalıştır</button>
+    </div>
+ 
+  </div>
+</div>
+<script>
+(async function(){
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const panel = document.getElementById('panel');
+  const GRID = 6;
+  let cellW = 50, cellH = 50;
+  let commandList = [];
+  let running = false;
+  let levelIndex = 0;
+ 
+  // 6x6 ızgarada başlangıçtan hedefe engelleri aşan en kısa yolu bulur (BFS)
+  function bfsPath(sx, sy, tx, ty, obstacles){
+    const blocked = new Set(obstacles.map(o=>o.gx+','+o.gy));
+    const key = (x,y)=>x+','+y;
+    const prev = {}; prev[key(sx,sy)] = null;
+    const q = [[sx,sy]]; let head = 0;
+    const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+    while(head < q.length){
+      const [x,y] = q[head++];
+      if(x===tx && y===ty) break;
+      for(const [dx,dy] of dirs){
+        const nx=x+dx, ny=y+dy;
+        if(nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+        if(blocked.has(key(nx,ny))) continue;
+        if(prev[key(nx,ny)] !== undefined) continue;
+        prev[key(nx,ny)] = [x,y];
+        q.push([nx,ny]);
+      }
+    }
+    if(prev[key(tx,ty)] === undefined) return null;
+    const path = [];
+    let cur = [tx,ty];
+    while(cur){ path.unshift({gx:cur[0], gy:cur[1]}); cur = prev[key(cur[0],cur[1])]; }
+    return path;
+  }
+ 
+  // Her bölüm: başlangıç(x,y), yön(0=yukarı,90=sağ,180=aşağı,270=sol), hedef(x,y)
+  function makeLevels(){
+    const L = [];
+    const OB_TYPES = ['ev','ağaç','insan'];
+    let seed = 987654321;
+    const rnd = () => { seed = (seed*1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    for(let i=0;i<30;i++){
+      if(i===20){
+        // 21. bölüm — kullanıcının belirlediği düzen:
+        // Başlangıç (1,1) Doğuya bakıyor; Bitiş (5,5) bayrak.
+        // Yıldızlar: 3., 5., 1., 3. sütun. Engeller: 2.,4.,2.,4.,4.,1.,2.,4. sütun.
+        const sx=0, sy=0, tx=4, ty=4;
+        const ang=90; // Doğu (sağa) bakıyor
+        const obstacles = [
+          {gx:1,gy:0,type:'ev'},    // 2. Sütun (Ev)
+          {gx:3,gy:0,type:'ağaç'},  // 4. Sütun (Ağaç)
+          {gx:1,gy:1,type:'yaya'},  // 2. Sütun (Yaya)
+          {gx:3,gy:1,type:'ev'},    // 4. Sütun (Ev)
+          {gx:3,gy:2,type:'ağaç'},  // 4. Sütun (Ağaç)
+          {gx:0,gy:5,type:'ev'},    // 1. Sütun (Ev)
+          {gx:1,gy:3,type:'yaya'},  // 2. Sütun (Yaya)
+          {gx:3,gy:4,type:'ev'}     // 4. Sütun (Ev)
+        ];
+        // Engelleri aşan, dönüşlü (karmaşık) en kısa yol
+        const path = [
+          {gx:0,gy:0},{gx:0,gy:1},{gx:0,gy:2},{gx:0,gy:3},{gx:0,gy:4},
+          {gx:1,gy:4},{gx:2,gy:4},{gx:2,gy:3},{gx:3,gy:3},{gx:4,gy:3},{gx:4,gy:4}
+        ];
+        // Yıldızlar: 1., 3., 5., 3. sütun — yol üzerinde, engellerin arasına serpiştirildi
+        const checkpoints = [
+          {gx:0,gy:2}, // 1. Sütun
+          {gx:2,gy:4}, // 3. Sütun
+          {gx:4,gy:3}, // 5. Sütun
+          {gx:2,gy:3}  // 3. Sütun
+        ];
+        L.push({sx,sy,ang,tx,ty,checkpoints,obstacles,path});
+        continue;
+      }
+      if(i===29){
+        // 30. bölüm — FINAL BOSS: kullanıcının tarif ettiği 6x6 yerleşim.
+        // Başlangıç (0,5) Doğuya bakıyor; Bitiş (3,0) bayrak.
+        // Satırlar alttan üste (gy=5..0), sütunlar soldan sağa (gx=0..5).
+        const sx=0, sy=5, tx=3, ty=0;
+        const ang=90; // Doğu (sağa) bakıyor
+        const obstacles = [
+          // 1. sıra (alt, gy=5): 3. sütun ev
+          {gx:2,gy:5,type:'ev'},
+          // 2. sıra (gy=4): 1 ağaç, 3 ev, 6 ağaç
+          {gx:0,gy:4,type:'ağaç'}, {gx:2,gy:4,type:'ev'}, {gx:5,gy:4,type:'ağaç'},
+          // 3. sıra (gy=3): 3 ev
+          {gx:2,gy:3,type:'ev'},
+          // 4. sıra (gy=2): 2 ev, 5 ağaç
+          {gx:1,gy:2,type:'ev'}, {gx:4,gy:2,type:'ağaç'},
+          // 5. sıra (gy=1): 4 ağaç, 5 ev
+          {gx:3,gy:1,type:'ağaç'}, {gx:4,gy:1,type:'ev'},
+          // 6. sıra (üst, gy=0): 1 ağaç, 2 ev, 3 ağaç
+          {gx:0,gy:0,type:'ağaç'}, {gx:1,gy:0,type:'ev'}, {gx:2,gy:0,type:'ağaç'}
+        ];
+        // Dolanan yol: soldan yukarı, üste çıkamadan sola, aşağı, sağa,
+        // tekrar yukarı, sağa, en sağdan hedefe tırmanış.
+        const path = [
+          {gx:0,gy:5},{gx:1,gy:5},{gx:1,gy:4},{gx:1,gy:3},{gx:0,gy:3},{gx:0,gy:2},
+          {gx:0,gy:1},{gx:1,gy:1},{gx:2,gy:1},{gx:2,gy:2},{gx:3,gy:2},{gx:3,gy:3},
+          {gx:3,gy:4},{gx:4,gy:4},{gx:4,gy:3},{gx:5,gy:3},{gx:5,gy:2},{gx:5,gy:1},
+          {gx:5,gy:0},{gx:4,gy:0},{gx:3,gy:0}
+        ];
+        // Kontrol noktaları: yol üzerinde dağıtılmış
+        const checkpoints = [
+          {gx:0,gy:2}, // sol dikey koridor
+          {gx:2,gy:2}, // orta
+          {gx:4,gy:4}, // alt sağ
+          {gx:5,gy:1}  // sağ dikey tırmanış
+        ];
+        L.push({sx,sy,ang,tx,ty,checkpoints,obstacles,path});
+        continue;
+      }
+      const isLast4 = i >= 16;
+      // Başlangıç ve hedef: Manhattan mesafesi 3-5
+      let sx,sy,tx,ty;
+      do {
+        sx = Math.floor(rnd()*6); sy = Math.floor(rnd()*6);
+        tx = Math.floor(rnd()*6); ty = Math.floor(rnd()*6);
+      } while (Math.abs(sx-tx)+Math.abs(sy-ty) < 3 || Math.abs(sx-tx)+Math.abs(sy-ty) > 5);
+ 
+      const manh = Math.abs(sx-tx)+Math.abs(sy-ty);
+      // İlk 5 bölümde engel yok; sonraki bölümlerde engel sayısı artar; son 4 bölüm daha zor
+      const obCount = i<5 ? 0 : Math.min(isLast4 ? 11 : 9, 3 + Math.floor((i-4)/1.5));
+      const extra = isLast4 ? 1 : 0;
+      let obstacles = [], path = null, attempts = 0;
+      while(attempts < 500){
+        attempts++;
+        obstacles = [];
+        let t=0;
+        while(obstacles.length<obCount && t<400){
+          t++;
+          const ox=Math.floor(rnd()*6), oy=Math.floor(rnd()*6);
+          if(ox===sx&&oy===sy) continue;
+          if(ox===tx&&oy===ty) continue;
+          if(obstacles.some(o=>o.gx===ox&&o.gy===oy)) continue;
+          obstacles.push({gx:ox,gy:oy, type: OB_TYPES[Math.floor(rnd()*OB_TYPES.length)]});
+        }
+        path = bfsPath(sx,sy,tx,ty,obstacles);
+        if(!path) continue;
+        // İleri bölümlerde engeller gerçekten dolanmayı zorlasın (yol Manhattan'dan uzun olsun)
+        if(i>=5 && (path.length-1) <= manh + extra) continue;
+        break;
+      }
+      if(!path){ path = bfsPath(sx,sy,tx,ty,[]); obstacles = []; } // emniyet: engelsiz en kısa yol
+ 
+      // Aracın ilk hareket yönüne göre başlangıç açısı
+      const fdx = path[1].gx - path[0].gx;
+      const fdy = path[1].gy - path[0].gy;
+      let ang;
+      if(fdx===0 && fdy===-1) ang=0;
+      else if(fdx===1 && fdy===0) ang=90;
+      else if(fdx===0 && fdy===1) ang=180;
+      else ang=270;
+ 
+      // Kontrol noktaları: yolun üzerinde (başlangıç ve hedef hariç); son 4 bölümde daha çok
+      const cpCount = i===0 ? 0 : (i<5 ? 1 : (isLast4 ? 4 : Math.min(3, 1 + Math.floor(i/5))));
+      const interior = path.slice(1, path.length-1);
+      const shuffled = interior.slice();
+      for(let k=shuffled.length-1;k>0;k--){ const j=Math.floor(rnd()*(k+1)); const tmp=shuffled[k]; shuffled[k]=shuffled[j]; shuffled[j]=tmp; }
+      const checkpoints = [];
+      for(let c=0;c<cpCount && c<shuffled.length;c++) checkpoints.push(shuffled[c]);
+ 
+      L.push({sx,sy,ang,tx,ty,checkpoints,obstacles,path});
+    }
+    return L;
+  }
+  const levels = makeLevels();
+ 
+  let car, target, visited = new Set();
+ 
+  function loadLevel(i){
+    levelIndex = i;
+    const L = levels[i];
+    car = { gx:L.sx, gy:L.sy, ang:L.ang };
+    target = { gx:L.tx, gy:L.ty };
+    commandList = [];
+    visited = new Set();
+    renderPanel();
+    document.getElementById('lvl').textContent = i+1;
+    document.getElementById('score').textContent = '0';
+    checkVisited();
+    updateProgress();
+    resize();
+  }
+ 
+  function resize(){
+    const r = cv.parentElement.getBoundingClientRect();
+    cv.width = r.width * devicePixelRatio;
+    cv.height = r.height * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    cellW = r.width / GRID;
+    cellH = r.height / GRID;
+    draw();
+  }
+  window.addEventListener('resize', resize);
+ 
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+ 
+  function checkVisited(){
+    (levels[levelIndex].checkpoints||[]).forEach((ck,idx)=>{
+      if(!visited.has(idx) && Math.abs(car.gx-ck.gx)<0.5 && Math.abs(car.gy-ck.gy)<0.5){
+        visited.add(idx);
+        updateProgress();
+      }
+    });
+  }
+ 
+  function updateProgress(){
+    const ckArr = levels[levelIndex].checkpoints||[];
+    const done = ckArr.filter((ck,idx)=>visited.has(idx)).length;
+    const pct = ckArr.length ? (done/ckArr.length*100) : 100;
+    const bar = document.getElementById('progress-bar');
+    if(bar) bar.style.width = pct + '%';
+  }
+ 
+  function drawCheckpoints(){
+    const off = 0;
+    const cs = Math.min(cellW, cellH);
+    (levels[levelIndex].checkpoints||[]).forEach((ck,idx)=>{
+      const px = off + ck.gx*cellW + cellW/2;
+      const py = off + ck.gy*cellH + cellH/2;
+      const done = visited.has(idx);
+      ctx.save();
+      ctx.shadowColor = done ? 'rgba(76,175,80,0.9)' : 'rgba(255,213,79,0.9)';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = done ? '#4caf50' : '#ffd54f';
+      ctx.beginPath(); ctx.arc(px,py,cs*0.24,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#1a1a2e';
+      ctx.font = (cs*0.32)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(done?'✓':'★', px, py);
+    });
+  }
+ 
+  function drawObstacles(){
+    const off = 0;
+    const cs = Math.min(cellW, cellH);
+    const OB_MAP = {
+      'ev':    { emoji:'🏠', bg:'#8d6e63' },
+      'ağaç':  { emoji:'🌳', bg:'#2e7d32' },
+      'insan': { emoji:'🧍', bg:'#1565c0' }
+    };
+    (levels[levelIndex].obstacles||[]).forEach(ob=>{
+      const px = off + ob.gx*cellW;
+      const py = off + ob.gy*cellH;
+      const m = OB_MAP[ob.type] || OB_MAP['ev'];
+      ctx.fillStyle = m.bg;
+      roundRect(px+cellW*0.1, py+cellH*0.1, cellW*0.8, cellH*0.8, cs*0.1); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = (cs*0.4)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(m.emoji, px+cellW/2, py+cellH/2);
+    });
+  }
+ 
+  function drawCar(){
+    const off = 0;
+    const cs = Math.min(cellW, cellH);
+    const cx = off + car.gx*cellW + cellW/2;
+    const cy = off + car.gy*cellH + cellH/2;
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(car.ang * Math.PI/180);
+    const w = cs*0.52, l = cs*0.78;
+    // gölge
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
+    ctx.fillStyle = '#e94560';
+    roundRect(-w/2, -l/2, w, l, cs*0.14); ctx.fill();
+    ctx.restore();
+    // tekerlekler
+    ctx.fillStyle = '#1a1a1a';
+    const ww = cs*0.16, wl = cs*0.22;
+    const wx = [-w/2-ww*0.35, w/2-ww*0.65];
+    const wy = [-l/2+wl*0.15, l/2-wl*1.15];
+    wx.forEach(x=>wy.forEach(y=>{ roundRect(x,y,ww,wl,cs*0.05); ctx.fill(); }));
+    // gövde parıltısı
+    ctx.fillStyle = '#f25c75';
+    roundRect(-w/2, -l/2, w, l*0.4, cs*0.14); ctx.fill();
+    // cam
+    ctx.fillStyle = '#16213e';
+    roundRect(-w*0.34, -l*0.18, w*0.68, l*0.5, cs*0.1); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    roundRect(-w*0.3, -l*0.32, w*0.6, l*0.16, cs*0.06); ctx.fill();
+    // farlar
+    ctx.fillStyle = '#ffd54f';
+    ctx.beginPath(); ctx.arc(-w*0.28, -l/2+cs*0.04, cs*0.05,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(w*0.28, -l/2+cs*0.04, cs*0.05,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+ 
+  function draw(){
+    if(!car || !target) return;
+    const w = cv.width, h = cv.height;
+    ctx.clearRect(0,0,w,h);
+    const off = 0;
+    // Oyun alanı arka planı ve ızgara çizgileri
+    const cs = Math.min(cellW, cellH);
+    ctx.fillStyle = '#0f3460';
+    ctx.fillRect(0, 0, cellW * GRID, cellH * GRID);
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = Math.max(1, Math.min(cellW, cellH) * 0.025);
+    for(let gx=0; gx<=GRID; gx++){
+      const x = gx * cellW;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cellH * GRID); ctx.stroke();
+    }
+    for(let gy=0; gy<=GRID; gy++){
+      const y = gy * cellH;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cellW * GRID, y); ctx.stroke();
+    }
+    const tx = off + target.gx*cellW + cellW/2;
+    const ty = off + target.gy*cellH + cellH/2;
+    // hedef parıltısı
+    const pulse = 0.5 + 0.5*Math.sin(Date.now()/350);
+    ctx.save();
+    ctx.shadowColor = 'rgba(76,175,80,0.9)';
+    ctx.shadowBlur = 18 + pulse*10;
+    // bayrak direği
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = cs*0.07;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(tx, ty + cs*0.36);
+    ctx.lineTo(tx, ty - cs*0.36);
+    ctx.stroke();
+    // bayrak zemini
+    const fw = cs*0.46, fh = cs*0.30;
+    const fx = tx, fy = ty - cs*0.36;
+    ctx.fillStyle = '#4caf50';
+    roundRect(fx, fy, fw, fh, cs*0.05); ctx.fill();
+    // dama deseni
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    const sq = fw/4;
+    for(let r=0;r<2;r++) for(let c=0;c<4;c++){
+      if((r+c)%2===0){ ctx.fillRect(fx + c*sq, fy + r*(fh/2), sq, fh/2); }
+    }
+    ctx.restore();
+    drawCheckpoints();
+    drawObstacles();
+    drawCar();
+  }
+ 
+  function renderPanel(){
+    while(panel.firstChild) panel.removeChild(panel.firstChild);
+    commandList.forEach((c,i)=>{
+      const d=document.createElement('div'); d.className='cmd';
+      const label = c==='İleri'?'⬆ İleri':c==='Sağ'?'↻ Sağ':c==='Sol'?'↺ Sol':c;
+      const labelEl = document.createElement('span');
+      labelEl.textContent = label;
+      const removeEl = document.createElement('span');
+      removeEl.className = 'x';
+      removeEl.dataset.i = i;
+      removeEl.textContent = '✕';
+      d.append(labelEl, removeEl);
+      panel.appendChild(d);
+    });
+    panel.querySelectorAll('.x').forEach(x=>{
+      x.onclick=()=>{ if(running)return; commandList.splice(+x.dataset.i,1); renderPanel(); };
+    });
+  }
+ 
+  function addCmd(c){ if(running)return; commandList.push(c); renderPanel(); sdk.hapticFeedback('light'); }
+ 
+  document.getElementById('b-fwd').onclick   = ()=>addCmd('İleri');
+  document.getElementById('b-right').onclick = ()=>addCmd('Sağ');
+  document.getElementById('b-left').onclick  = ()=>addCmd('Sol');
+  document.getElementById('btn-clear').onclick = ()=>{ if(running)return; commandList=[]; renderPanel(); sdk.hapticFeedback('light'); };
+ 
+  // "Tekrarla": mevcut komut dizisinin tamamını bir kez daha ekler (basit döngü mekaniği)
+  document.getElementById('btn-repeat').onclick = ()=>{
+    if(running) return;
+    if(commandList.length === 0){ sdk.hapticFeedback('error'); return; }
+    if(commandList.length > 30){ sdk.hapticFeedback('error'); return; } // aşırı büyümeyi engelle
+    commandList = commandList.concat(commandList);
+    renderPanel();
+    sdk.hapticFeedback('light');
+  };
+ 
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+ 
+  async function moveForward(){
+    const steps = 20;
+    const dx = Math.sin(car.ang*Math.PI/180);
+    const dy = -Math.cos(car.ang*Math.PI/180);
+    const obstacles = levels[levelIndex].obstacles||[];
+    for(let s=0;s<steps;s++){
+      car.gx += dx/steps; car.gy += dy/steps;
+      checkVisited();
+      for(const ob of obstacles){
+        if(Math.hypot(car.gx-ob.gx, car.gy-ob.gy) < 0.5){
+          draw();
+          sdk.hapticFeedback('error');
+          sdk.singlePlayer.actions.gameOver({ score:0, levelAttempt:{ levelIndex: levelIndex+1, stars:0 } });
+          running = false;
+          return false;
+        }
+      }
+      draw(); await sleep(25);
+    }
+    car.gx = Math.round(car.gx); car.gy = Math.round(car.gy);
+    checkVisited();
+    return true;
+  }
+ 
+  async function run(){
+    if(running) return;
+    if(commandList.length === 0) return;
+    running = true;
+    sdk.hapticFeedback('medium');
+    for(const cmd of commandList){
+      if(cmd === 'İleri'){
+        const ok = await moveForward();
+        if(ok === false) return;
+      } else if(cmd === 'Sağ'){
+        car.ang = (car.ang + 90) % 360;
+        checkVisited(); draw(); await sleep(500);
+      } else if(cmd === 'Sol'){
+        car.ang = (car.ang + 270) % 360;
+        checkVisited(); draw(); await sleep(500);
+      }
+      await sleep(500);
+    }
+    const dist = Math.hypot(car.gx-target.gx, car.gy-target.gy);
+    const ckArr = levels[levelIndex].checkpoints||[];
+    const ckDone = ckArr.filter((ck,idx)=>visited.has(idx)).length;
+    if(dist < 0.5){
+      let stars = 1;
+      if(ckArr.length === 0) stars = 3;
+      else if(ckDone === ckArr.length) stars = 3;
+      else if(ckDone >= Math.ceil(ckArr.length/2)) stars = 2;
+      const optimal = computeSolution().length;
+      const used = commandList.length;
+      let score = stars * 100;
+      score += Math.max(0, (optimal * 2 - used)) * 10;
+      score += (levelIndex + 1) * 25;
+      document.getElementById('score').textContent = score;
+      sdk.hapticFeedback('success');
+      sdk.singlePlayer.actions.gameOver({ score:0, levelAttempt:{ levelIndex: levelIndex+1, stars } });
+    } else {
+      sdk.hapticFeedback('error');
+      sdk.singlePlayer.actions.gameOver({ score:0, levelAttempt:{ levelIndex: levelIndex+1, stars:0 } });
+    }
+    running = false;
+  }
+  document.getElementById('btn-run').onclick = run;
+ 
+  function computeSolution(){
+    const L = levels[levelIndex];
+    const cells = L.path;
+    const cmds = [];
+    let ang = L.ang;
+    const dirFor = (dx,dy) => {
+      if(dx===0 && dy===-1) return 0;
+      if(dx===1 && dy===0) return 90;
+      if(dx===0 && dy===1) return 180;
+      if(dx===-1 && dy===0) return 270;
+      return ang;
+    };
+    for(let i=1;i<cells.length;i++){
+      const dx = cells[i].gx - cells[i-1].gx;
+      const dy = cells[i].gy - cells[i-1].gy;
+      const want = dirFor(dx,dy);
+      const diff = (want - ang + 360) % 360;
+      if(diff===90) cmds.push('Sağ');
+      else if(diff===270) cmds.push('Sol');
+      else if(diff===180){ cmds.push('Sağ'); cmds.push('Sağ'); }
+      cmds.push('İleri');
+      ang = want;
+    }
+    return cmds;
+  }
+ 
+  function applySafeArea(){
+    const info = sdk.gameInfo;
+    if(!info || info.viewContext !== 'full_screen') return;
+    const ins = info.contentSafeAreaInset || {top:0,right:0,bottom:0,left:0};
+    const header = document.getElementById('header');
+    const controls = document.getElementById('controls');
+    const panel = document.getElementById('panel');
+    header.style.paddingTop = (10 + ins.top) + 'px';
+    header.style.paddingLeft = ins.left + 'px';
+    header.style.paddingRight = ins.right + 'px';
+    controls.style.paddingBottom = (8 + ins.bottom) + 'px';
+    controls.style.paddingLeft = ins.left + 'px';
+    controls.style.paddingRight = ins.right + 'px';
+    panel.style.paddingLeft = (8 + ins.left) + 'px';
+    panel.style.paddingRight = (8 + ins.right) + 'px';
+  }
+ 
+  const sdk = window.RemixSDK;
+  await sdk.ready();
+  let muted = false;
+  sdk.onToggleMute(({ isMuted }) => { muted = isMuted; });
+  applySafeArea();
+  sdk.onGameInfo(() => applySafeArea());
+  sdk.onPlay((data) => {
+    const idx = (data && data.levelIndex) ? data.levelIndex - 1 : (sdk.currentLevelIndex ? sdk.currentLevelIndex - 1 : 0);
+    levelIndex = idx;
+    loadLevel(idx);
+  });
+  sdk.onPlayAgain((data) => {
+    const idx = (data && data.levelIndex) ? data.levelIndex - 1 : (sdk.currentLevelIndex ? sdk.currentLevelIndex - 1 : 0);
+    levelIndex = idx;
+    loadLevel(idx);
+  });
+  function loop(){ draw(); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  loadLevel(sdk.currentLevelIndex ? sdk.currentLevelIndex - 1 : 0);
+})();
+</script>
+</body>
+</html>
+ 
